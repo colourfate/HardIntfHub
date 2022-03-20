@@ -132,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
         openDevice();
         assignEndpoint();
 
+        /*
         if (myDeviceConnection == null || myEndPointOut == null || myEndPointIn == null) {
             Log.e(TAG, "Usb hid init failed");
             return;
@@ -154,7 +155,10 @@ public class MainActivity extends AppCompatActivity {
         }
         Log.d(TAG, "Usb hid get data: " + Arrays.toString(receiveBuffer));
 
+         */
+        InterfaceTerminal intfTerm = new InterfaceTerminal();
+        intfTerm.start();
+        intfTerm.gpioWrite(InterfaceTerminal.Group.C, 13, true);
+        intfTerm.gpioWrite(InterfaceTerminal.Group.C, 13, false);
     }
-
-
 }
