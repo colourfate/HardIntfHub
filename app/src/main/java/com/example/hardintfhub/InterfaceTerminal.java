@@ -10,8 +10,72 @@ import android.util.Log;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+
+class UsbReceiveThread extends Thread {
+    private final static String TAG = "USB_HOST";
+    LinkedList<UsbCmdPacket> mInList = new LinkedList<UsbCmdPacket>();
+    private SpinLock mReceiveLock = new SpinLock();
+    private UsbDeviceConnection mUsbDeviceConn;
+    private UsbEndpoint mEndPointIn;
+
+    UsbReceiveThread(UsbDeviceConnection usbDeviceConn, UsbEndpoint endPointIn) {
+        this.mUsbDeviceConn = usbDeviceConn;
+        this.mEndPointIn = endPointIn;
+    }
+
+    public boolean terminalAck(UsbCmdPacket usbCmdPacket) {
+        boolean isFind = false;
+
+        mReceiveLock.lock();
+        for (UsbCmdPacket receivePacket : mInList) {
+            if (receivePacket.comparePack(usbCmdPacket)) {
+                usbCmdPacket.setData(receivePacket.getData());
+                mInList.remove(receivePacket);
+                isFind = true;
+                break;
+            }
+        }
+        mReceiveLock.unlock();
+
+        return isFind;
+    }
+
+    @Override
+    public void run() {
+        int inMax = mEndPointIn.getMaxPacketSize();
+        byte[] receiveBuffer = new byte[inMax];
+
+        while (true) {
+            int len;
+
+            /* timeout = 0 thread will stub */
+            len = mUsbDeviceConn.bulkTransfer(mEndPointIn, receiveBuffer, receiveBuffer.length, 1);
+            if (len < 0) {
+                continue;
+            }
+
+            if (len > UsbCmdPacket.USB_PACKET_MAX || len < UsbCmdPacket.USB_PACKET_MIN) {
+                Log.e(TAG, "Receive packet length is invalid: " + len);
+                continue;
+            }
+
+            Log.d(TAG, "receive buffer: " + Arrays.toString(receiveBuffer));
+
+            UsbCmdPacket usbCmdPacket = new UsbCmdPacket(len);
+
+            for (int i = 0; i < len; i++) {
+                usbCmdPacket.put(receiveBuffer[i]);
+            }
+
+            mReceiveLock.lock();
+            mInList.add(usbCmdPacket);
+            mReceiveLock.unlock();
+        }
+    }
+}
 
 class UsbSendThread extends Thread {
     private final static String TAG = "USB_HOST";
@@ -74,6 +138,7 @@ public class InterfaceTerminal {
     private UsbEndpoint myEndPointIn;
 
     private UsbSendThread mSendThread;
+    private UsbReceiveThread mReceiveThread;
 
     InterfaceTerminal(UsbManager usbManager) {
         this.myUsbManager = usbManager;
@@ -93,6 +158,27 @@ public class InterfaceTerminal {
         usbCmdPacket.setPin(pin);
         usbCmdPacket.setData(data);
         mSendThread.sendPacket(usbCmdPacket);
+    }
+
+    public boolean gpioRead(UsbCmdPacket.Group group, int pin) {
+        if (pin > UsbCmdPacket.GPIO_PIN_CNT) {
+            Log.e(TAG, "Not support pin: " + pin);
+            return false;
+        }
+
+        byte[] data = new byte[1];
+        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(4);
+        usbCmdPacket.setType(UsbCmdPacket.Type.GPIO);
+        usbCmdPacket.setDir(UsbCmdPacket.Dir.IN);
+        usbCmdPacket.setGroup(group);
+        usbCmdPacket.setPin(pin);
+        usbCmdPacket.setData(data);
+        mSendThread.sendPacket(usbCmdPacket);
+
+        while (!mReceiveThread.terminalAck(usbCmdPacket)) {};
+
+        byte[] ackData = usbCmdPacket.getData();
+        return ackData[0] == 1;
     }
 
     private void enumerateDevice(int vendorId, int productId) {
@@ -190,6 +276,11 @@ public class InterfaceTerminal {
         if (mSendThread == null) {
             mSendThread = new UsbSendThread(myDeviceConnection, myEndPointOut);
             mSendThread.start();
+        }
+
+        if (mReceiveThread == null) {
+            mReceiveThread = new UsbReceiveThread(myDeviceConnection, myEndPointIn);
+            mReceiveThread.start();
         }
     }
 }

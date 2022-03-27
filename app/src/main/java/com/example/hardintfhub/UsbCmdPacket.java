@@ -1,12 +1,14 @@
 package com.example.hardintfhub;
 
+import java.util.Arrays;
 import java.util.Iterator;
 
 class UsbCmdPacket implements Iterator {
     public final static int GPIO_PIN_CNT = 16;
     public final static int USB_PACKET_MAX = 64;
+    public final static int USB_PACKET_MIN = 4;
     private int mIndex;
-    byte[] mPacket;
+    private byte[] mPacket;
 
     public enum Type {
         GPIO(0), ADC(1), SERIAL(2), I2C(3), SPI(4), CAN(5);
@@ -39,6 +41,7 @@ class UsbCmdPacket implements Iterator {
         public int getValue() {
             return value;
         }
+        public void setValue(int value) { this.value = value; }
     }
 
     public void setType(Type type) {
@@ -63,10 +66,6 @@ class UsbCmdPacket implements Iterator {
     public void setData(byte[] data) {
         byte dataLen;
 
-        if (data == null) {
-            return;
-        }
-
         dataLen = (byte)data.length;
         if (data.length > USB_PACKET_MAX - 4) {
             dataLen = USB_PACKET_MAX - 4;
@@ -76,6 +75,20 @@ class UsbCmdPacket implements Iterator {
         for (int i = 0; i < dataLen; i++) {
             mPacket[3 + i] = data[i];
         }
+    }
+
+    public byte[] getData() {
+        return Arrays.copyOfRange(mPacket, 3, mPacket.length);
+    }
+
+    public boolean comparePack(UsbCmdPacket usbCmdPacket) {
+        for (int i = 0; i < 3 && usbCmdPacket.hasNext(); i++) {
+            if (mPacket[i] != (byte)usbCmdPacket.next()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     UsbCmdPacket (int packetLen) {
@@ -99,5 +112,9 @@ class UsbCmdPacket implements Iterator {
     @Override
     public Object next() {
         return mPacket[mIndex++];
+    }
+
+    public void put(byte value) {
+        mPacket[mIndex++] = value;
     }
 }
