@@ -6,13 +6,17 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
+import android.hardware.usb.UsbRequest;
 import android.util.Log;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 class UsbReceiveThread extends Thread {
     private final static String TAG = "USB_HOST";
@@ -47,12 +51,16 @@ class UsbReceiveThread extends Thread {
     public void run() {
         int inMax = mEndPointIn.getMaxPacketSize();
         byte[] receiveBuffer = new byte[inMax];
+        UsbRequest readRequest = new UsbRequest();
+        readRequest.initialize(mUsbDeviceConn, mEndPointIn);
+        ByteBuffer readBuf = ByteBuffer.wrap(receiveBuffer);
 
         while (true) {
-            int len;
+            //int len;
 
             /* timeout = 0 thread will stub */
-            len = mUsbDeviceConn.bulkTransfer(mEndPointIn, receiveBuffer, receiveBuffer.length, 1);
+            /*
+            len = mUsbDeviceConn.bulkTransfer(mEndPointIn, receiveBuffer, receiveBuffer.length, 5);
             if (len < 0) {
                 continue;
             }
@@ -61,13 +69,23 @@ class UsbReceiveThread extends Thread {
                 Log.e(TAG, "Receive packet length is invalid: " + len);
                 continue;
             }
+            */
+            if (!readRequest.queue(readBuf, inMax)) {
+                Log.e(TAG, "Error queueing request");
+                continue;
+            }
+            final UsbRequest response = mUsbDeviceConn.requestWait();
+            if (response == null) {
+                Log.e(TAG, "Null request");
+                continue;
+            }
 
-            Log.d(TAG, "receive buffer: " + Arrays.toString(receiveBuffer));
+            Log.d(TAG, "receive buffer: " + Arrays.toString(readBuf.array()));
 
-            UsbCmdPacket usbCmdPacket = new UsbCmdPacket(len);
+            UsbCmdPacket usbCmdPacket = new UsbCmdPacket(readBuf.position());
 
-            for (int i = 0; i < len; i++) {
-                usbCmdPacket.put(receiveBuffer[i]);
+            for (int i = 0; i < readBuf.position(); i++) {
+                usbCmdPacket.put(readBuf.get(i));
             }
 
             mReceiveLock.lock();
@@ -151,7 +169,7 @@ public class InterfaceTerminal {
         }
 
         byte[] data = { (byte)(value ? 1 : 0) };
-        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(4);
+        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(UsbCmdPacket.USB_PACKET_MIN);
         usbCmdPacket.setType(UsbCmdPacket.Type.GPIO);
         usbCmdPacket.setDir(UsbCmdPacket.Dir.OUT);
         usbCmdPacket.setGroup(group);
@@ -167,7 +185,7 @@ public class InterfaceTerminal {
         }
 
         byte[] data = new byte[1];
-        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(4);
+        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(UsbCmdPacket.USB_PACKET_MIN);
         usbCmdPacket.setType(UsbCmdPacket.Type.GPIO);
         usbCmdPacket.setDir(UsbCmdPacket.Dir.IN);
         usbCmdPacket.setGroup(group);
@@ -175,10 +193,54 @@ public class InterfaceTerminal {
         usbCmdPacket.setData(data);
         mSendThread.sendPacket(usbCmdPacket);
 
-        while (!mReceiveThread.terminalAck(usbCmdPacket)) {};
+        int cnt = 0;
+        while (!mReceiveThread.terminalAck(usbCmdPacket) && cnt++ < 1000) {
+            //Log.e(TAG, "wait ack");
+            try {
+                TimeUnit.MICROSECONDS.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        };
+        if (cnt >= 1000) {
+            throw new RuntimeException("Wait ack timeout");
+        }
 
         byte[] ackData = usbCmdPacket.getData();
         return ackData[0] == 1;
+    }
+
+    public void uartWrite(int uartNum, byte[] data) {
+        if (uartNum != 2) {
+            Log.e(TAG, "Not support uartNum: " + uartNum);
+            return;
+        }
+
+        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(UsbCmdPacket.USB_PACKET_MIN + data.length - 1);
+        usbCmdPacket.setType(UsbCmdPacket.Type.SERIAL);
+        usbCmdPacket.setDir(UsbCmdPacket.Dir.OUT);
+        usbCmdPacket.setGroup(UsbCmdPacket.Group.MUL_FUNC);
+        usbCmdPacket.setPin(uartNum);
+        usbCmdPacket.setData(data);
+        mSendThread.sendPacket(usbCmdPacket);
+    }
+
+    public int uartRead(int uartNum, byte[] data) {
+        if (uartNum != 2) {
+            Log.e(TAG, "Not support uartNum: " + uartNum);
+            return 0;
+        }
+
+        UsbCmdPacket usbCmdPacket = new UsbCmdPacket(UsbCmdPacket.USB_PACKET_MIN + data.length - 1);
+        usbCmdPacket.setType(UsbCmdPacket.Type.SERIAL);
+        usbCmdPacket.setDir(UsbCmdPacket.Dir.IN);
+        usbCmdPacket.setGroup(UsbCmdPacket.Group.MUL_FUNC);
+        usbCmdPacket.setPin(uartNum);
+        usbCmdPacket.setData(data);
+        mSendThread.sendPacket(usbCmdPacket);
+
+        while (!mReceiveThread.terminalAck(usbCmdPacket)) {};
+        return 0;
     }
 
     private void enumerateDevice(int vendorId, int productId) {

@@ -7,11 +7,9 @@ class UsbCmdPacket implements Iterator {
     public final static int GPIO_PIN_CNT = 16;
     public final static int USB_PACKET_MAX = 64;
     public final static int USB_PACKET_MIN = 4;
-    private int mIndex;
-    private byte[] mPacket;
 
     public enum Type {
-        GPIO(0), ADC(1), SERIAL(2), I2C(3), SPI(4), CAN(5);
+        GPIO(0), PWM(1), ADC(2), SERIAL(3), I2C(4), SPI(5), CAN(6);
         private int value;
         Type(int i) {
             this.value = i;
@@ -82,7 +80,7 @@ class UsbCmdPacket implements Iterator {
     }
 
     public boolean comparePack(UsbCmdPacket usbCmdPacket) {
-        for (int i = 0; i < 3 && usbCmdPacket.hasNext(); i++) {
+        for (int i = 0; i < 2 && usbCmdPacket.hasNext(); i++) {
             if (mPacket[i] != (byte)usbCmdPacket.next()) {
                 return false;
             }

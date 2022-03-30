@@ -14,6 +14,8 @@ import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.ToggleButton;
 
+import java.nio.charset.StandardCharsets;
+
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
     private static final String TAG = "USB_HOST";
     private final static int VENDOR_ID = 0x483;
@@ -27,7 +29,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         @Override
         public void run() {
             while (mLedView != null && mIntfTerm != null) {
+                Log.d(TAG, "start");
                 boolean isPress = !mIntfTerm.gpioRead(UsbCmdPacket.Group.A, 0);
+                Log.d(TAG, "end");
                 if (isPress) {
                     mLedView.clearColorFilter();
                 } else {
@@ -48,15 +52,8 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mLedButton = findViewById(R.id.toggleButton);
-        mLedButton.setOnCheckedChangeListener(this);
-
-        mLedView = findViewById(R.id.imageView);
-        mLedView.setColorFilter(Color.GRAY, PorterDuff.Mode.MULTIPLY);
-
         UsbManager usbManager = (UsbManager) getSystemService(USB_SERVICE);
         mIntfTerm = new InterfaceTerminal(usbManager);
-
         try {
             mIntfTerm.connect(VENDOR_ID, PRODUCT_ID);
         } catch (Exception e) {
@@ -66,17 +63,23 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
         mIntfTerm.start();
 
+        mLedButton = findViewById(R.id.toggleButton);
+        mLedButton.setOnCheckedChangeListener(this);
+
+        mLedView = findViewById(R.id.imageView);
+        mLedView.setColorFilter(Color.GRAY, PorterDuff.Mode.MULTIPLY);
         LedControlThread ledControlThread = new LedControlThread();
         ledControlThread.start();
     }
 
     @Override
     public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+        String str = "Hello world\r\n";
         if (compoundButton.isChecked()) {
-            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, false);
-            //Log.d(TAG, "Read PA0: " + mIntfTerm.gpioRead(UsbCmdPacket.Group.A, 0));
+            //mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, false);
+            mIntfTerm.uartWrite(2, str.getBytes());
         } else {
-            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, true);
+            //mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, true);
         }
     }
 }
