@@ -26,6 +26,34 @@ public class ExampleInstrumentedTest {
     private final static int PRODUCT_ID = 0x5750;
 
     @Test
+    public void writeGpioTest() {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertEquals("com.example.hardintfhub", appContext.getPackageName());
+
+        UsbManager usbManager = (UsbManager)appContext.getSystemService(appContext.USB_SERVICE);
+        InterfaceTerminal intfTerm = new InterfaceTerminal(usbManager);
+
+        try {
+            intfTerm.connect(VENDOR_ID, PRODUCT_ID);
+        } catch (Exception e) {
+            fail("Usb connect failed");
+        };
+
+        int cnt = 1000;
+        boolean value = true;
+        while (cnt-- > 0) {
+            Log.d(TAG, "start: " + cnt);
+            intfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, value);
+            value = !value;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Test
     public void readGpioTest() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -42,23 +70,23 @@ public class ExampleInstrumentedTest {
 
         intfTerm.start();
 
-        int cnt = 1000;
+        int cnt = 500;
         while (cnt-- > 0) {
             Log.d(TAG, "start: " + cnt);
             boolean isPress = !intfTerm.gpioRead(UsbCmdPacket.Group.A, 0);
             Log.d(TAG, "end");
             if (isPress) {
-                Log.d(TAG, "Press");
+                //Log.d(TAG, "Press");
             } else {
-                Log.d(TAG, "No Press");
+                //Log.d(TAG, "No Press");
             }
 
             try {
-                Thread.sleep(100);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            Log.d(TAG, "Next");
+            //Log.d(TAG, "Next");
         }
     }
 }

@@ -11,17 +11,57 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EventListener;
+import java.util.EventObject;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+
+class HardIntfEvent extends EventObject {
+    UsbCmdPacket mUsbCmdPacket;
+
+    public HardIntfEvent(Object source, UsbCmdPacket usbCmdPacket) {
+        super(source);
+        this.mUsbCmdPacket = usbCmdPacket;
+    }
+
+    public UsbCmdPacket getUsbCmdPacket() {
+        return mUsbCmdPacket;
+    }
+}
+
+abstract class IntfEventListener implements EventListener {
+    private int mUserRet = 0;
+    private boolean mIsHandled = false;
+    private UsbCmdPacket mUsbCmdPacket;
+
+    IntfEventListener(UsbCmdPacket usbCmdPacket) {
+        this.mUsbCmdPacket = usbCmdPacket;
+    }
+
+    public int getUserRet() { return mUserRet; }
+    public boolean isHandled() { return mIsHandled; }
+
+    abstract int userHandle(UsbCmdPacket receivePacket);
+    public void handleIntfEvent(HardIntfEvent hardIntfEvent) {
+        UsbCmdPacket receivePacket = hardIntfEvent.getUsbCmdPacket();
+
+        if (!mUsbCmdPacket.comparePack(receivePacket)) {
+            return;
+        }
+        mUserRet = userHandle(receivePacket);
+        mIsHandled = true;
+    }
+}
 
 class UsbReceiveThread extends Thread {
     private final static String TAG = "USB_HOST";
-    LinkedList<UsbCmdPacket> mInList = new LinkedList<UsbCmdPacket>();
-    private SpinLock mReceiveLock = new SpinLock();
+    private ConcurrentLinkedQueue<IntfEventListener> mListenerList = new ConcurrentLinkedQueue<IntfEventListener>();
     private UsbDeviceConnection mUsbDeviceConn;
     private UsbEndpoint mEndPointIn;
 
@@ -30,21 +70,12 @@ class UsbReceiveThread extends Thread {
         this.mEndPointIn = endPointIn;
     }
 
-    public boolean terminalAck(UsbCmdPacket usbCmdPacket) {
-        boolean isFind = false;
+    public void addEventListener(IntfEventListener listener) {
+        mListenerList.add(listener);
+    }
 
-        mReceiveLock.lock();
-        for (UsbCmdPacket receivePacket : mInList) {
-            if (receivePacket.comparePack(usbCmdPacket)) {
-                usbCmdPacket.setData(receivePacket.getData());
-                mInList.remove(receivePacket);
-                isFind = true;
-                break;
-            }
-        }
-        mReceiveLock.unlock();
-
-        return isFind;
+    public void deleteEventListener(IntfEventListener listener) {
+        mListenerList.remove(listener);
     }
 
     @Override
@@ -56,20 +87,6 @@ class UsbReceiveThread extends Thread {
         ByteBuffer readBuf = ByteBuffer.wrap(receiveBuffer);
 
         while (true) {
-            //int len;
-
-            /* timeout = 0 thread will stub */
-            /*
-            len = mUsbDeviceConn.bulkTransfer(mEndPointIn, receiveBuffer, receiveBuffer.length, 5);
-            if (len < 0) {
-                continue;
-            }
-
-            if (len > UsbCmdPacket.USB_PACKET_MAX || len < UsbCmdPacket.USB_PACKET_MIN) {
-                Log.e(TAG, "Receive packet length is invalid: " + len);
-                continue;
-            }
-            */
             if (!readRequest.queue(readBuf, inMax)) {
                 Log.e(TAG, "Error queueing request");
                 continue;
@@ -83,14 +100,14 @@ class UsbReceiveThread extends Thread {
             Log.d(TAG, "receive buffer: " + Arrays.toString(readBuf.array()));
 
             UsbCmdPacket usbCmdPacket = new UsbCmdPacket(readBuf.position());
-
             for (int i = 0; i < readBuf.position(); i++) {
                 usbCmdPacket.put(readBuf.get(i));
             }
 
-            mReceiveLock.lock();
-            mInList.add(usbCmdPacket);
-            mReceiveLock.unlock();
+            HardIntfEvent hardIntfEvent = new HardIntfEvent(this, usbCmdPacket);
+            for (IntfEventListener listener : mListenerList) {
+                listener.handleIntfEvent(hardIntfEvent);
+            }
         }
     }
 }
@@ -191,28 +208,30 @@ public class InterfaceTerminal {
         usbCmdPacket.setGroup(group);
         usbCmdPacket.setPin(pin);
         usbCmdPacket.setData(data);
-        mSendThread.sendPacket(usbCmdPacket);
-
-        int cnt = 0;
-        while (!mReceiveThread.terminalAck(usbCmdPacket) && cnt++ < 1000) {
-            //Log.e(TAG, "wait ack");
-            try {
-                TimeUnit.MICROSECONDS.sleep(200);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        IntfEventListener gpioReadListener = new IntfEventListener(usbCmdPacket) {
+            @Override
+            public int userHandle(UsbCmdPacket receivePacket) {
+                byte[] receiveData = new byte[1];
+                receivePacket.getData(receiveData);
+                return receiveData[0];
             }
         };
-        if (cnt >= 1000) {
-            throw new RuntimeException("Wait ack timeout");
-        }
 
-        byte[] ackData = usbCmdPacket.getData();
-        return ackData[0] == 1;
+        mReceiveThread.addEventListener(gpioReadListener);
+        mSendThread.sendPacket(usbCmdPacket);
+        while (!gpioReadListener.isHandled()) {};
+        mReceiveThread.deleteEventListener(gpioReadListener);
+
+        return gpioReadListener.getUserRet() == 1;
     }
 
     public void uartWrite(int uartNum, byte[] data) {
         if (uartNum != 2) {
             Log.e(TAG, "Not support uartNum: " + uartNum);
+            return;
+        }
+
+        if (data.length == 0) {
             return;
         }
 
@@ -237,10 +256,19 @@ public class InterfaceTerminal {
         usbCmdPacket.setGroup(UsbCmdPacket.Group.MUL_FUNC);
         usbCmdPacket.setPin(uartNum);
         usbCmdPacket.setData(data);
-        mSendThread.sendPacket(usbCmdPacket);
+        IntfEventListener uartReadListener = new IntfEventListener(usbCmdPacket) {
+            @Override
+            public int userHandle(UsbCmdPacket receivePacket) {
+                return receivePacket.getData(data);
+            }
+        };
 
-        while (!mReceiveThread.terminalAck(usbCmdPacket)) {};
-        return 0;
+        mReceiveThread.addEventListener(uartReadListener);
+        mSendThread.sendPacket(usbCmdPacket);
+        while (!uartReadListener.isHandled()) {};
+        mReceiveThread.deleteEventListener(uartReadListener);
+
+        return uartReadListener.getUserRet();
     }
 
     private void enumerateDevice(int vendorId, int productId) {

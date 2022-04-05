@@ -1,5 +1,8 @@
 package com.example.hardintfhub;
 
+import android.util.Log;
+
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -7,10 +10,13 @@ class UsbCmdPacket implements Iterator {
     public final static int GPIO_PIN_CNT = 16;
     public final static int USB_PACKET_MAX = 64;
     public final static int USB_PACKET_MIN = 4;
+    private int mIndex;
+    public final byte[] mPacket;
+    private final static String TAG = "USB_HOST";
 
     public enum Type {
         GPIO(0), PWM(1), ADC(2), SERIAL(3), I2C(4), SPI(5), CAN(6);
-        private int value;
+        private final int value;
         Type(int i) {
             this.value = i;
         }
@@ -21,7 +27,7 @@ class UsbCmdPacket implements Iterator {
 
     public enum Dir {
         IN(0), OUT(1);
-        private int value;
+        private final int value;
         Dir(int i) {
             this.value = i;
         }
@@ -32,14 +38,13 @@ class UsbCmdPacket implements Iterator {
 
     public enum Group {
         A(0), B(1), C(2), D(3), E(4), F(5), G(6), H(7), MUL_FUNC(8);
-        private int value;
+        private final int value;
         Group(int i) {
             this.value = i;
         }
         public int getValue() {
             return value;
         }
-        public void setValue(int value) { this.value = value; }
     }
 
     public void setType(Type type) {
@@ -61,37 +66,39 @@ class UsbCmdPacket implements Iterator {
         mPacket[1] |= pin;
     }
 
-    public void setData(byte[] data) {
+    public void setData(final byte[] data) {
         byte dataLen;
 
         dataLen = (byte)data.length;
         if (data.length > USB_PACKET_MAX - 4) {
+            Log.w(TAG, "data length(" + data.length + ") should < " + (USB_PACKET_MAX - 4));
             dataLen = USB_PACKET_MAX - 4;
         }
 
         mPacket[2] = dataLen;
-        for (int i = 0; i < dataLen; i++) {
-            mPacket[3 + i] = data[i];
-        }
+        if (dataLen >= 0) System.arraycopy(data, 0, mPacket, 3, dataLen);
     }
 
-    public byte[] getData() {
-        return Arrays.copyOfRange(mPacket, 3, mPacket.length);
+    public int getData(byte[] data) {
+        int dataLen = mPacket[2];
+        if (data.length < dataLen) {
+            Log.w(TAG, "data length(" + data.length + ") should >= " + dataLen);
+            dataLen = data.length;
+        }
+
+        System.arraycopy(mPacket, 3, data, 0, dataLen);
+        return dataLen;
     }
 
     public boolean comparePack(UsbCmdPacket usbCmdPacket) {
-        for (int i = 0; i < 2 && usbCmdPacket.hasNext(); i++) {
-            if (mPacket[i] != (byte)usbCmdPacket.next()) {
-                return false;
-            }
-        }
-
-        return true;
+        return mPacket[0] == usbCmdPacket.mPacket[0] && mPacket[1] == usbCmdPacket.mPacket[1];
     }
 
     UsbCmdPacket (int packetLen) {
-        if (packetLen < 4) {
-            packetLen = 4;
+        if (packetLen < USB_PACKET_MIN) {
+            packetLen = USB_PACKET_MIN;
+        } else if (packetLen > USB_PACKET_MAX) {
+            packetLen = USB_PACKET_MAX;
         }
 
         mPacket = new byte[packetLen];
@@ -100,11 +107,7 @@ class UsbCmdPacket implements Iterator {
 
     @Override
     public boolean hasNext() {
-        if (mIndex < mPacket.length) {
-            return true;
-        }
-
-        return false;
+        return mIndex < mPacket.length;
     }
 
     @Override

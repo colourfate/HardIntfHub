@@ -2,19 +2,54 @@ package com.example.hardintfhub;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.RadioButton;
+import android.widget.TextView;
 import android.widget.ToggleButton;
 
-import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
+class UartReceiveThread extends Thread {
+    private InterfaceTerminal mIntfTerm;
+    private TextView mUartTest;
+
+    public UartReceiveThread(InterfaceTerminal intfTerm, TextView uartTest) {
+        this.mIntfTerm = intfTerm;
+        this.mUartTest = uartTest;
+    }
+
+    @Override
+    public void run() {
+        StringBuffer contentBuffer = new StringBuffer("");
+        while (true) {
+            byte[] buf = new byte[10];
+            int readLen = mIntfTerm.uartRead(2, buf);
+            if (readLen > 0) {
+                contentBuffer.append(new String(Arrays.copyOfRange(buf, 0, readLen)));
+                if (mUartTest.getLineCount() > mUartTest.getMaxLines()) {
+                    int end = contentBuffer.indexOf("\n");
+                    contentBuffer.delete(0, end + 1);
+                }
+
+                mUartTest.setText(contentBuffer);
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
 
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
     private static final String TAG = "USB_HOST";
@@ -22,6 +57,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private final static int PRODUCT_ID = 0x5750;
     private ToggleButton mLedButton;
     private ImageView mLedView;
+    private TextView mUartTestView;
+    private Button mSendButton;
+    private EditText mSendEditText;
 
     private InterfaceTerminal mIntfTerm;
 
@@ -29,9 +67,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         @Override
         public void run() {
             while (mLedView != null && mIntfTerm != null) {
-                Log.d(TAG, "start");
                 boolean isPress = !mIntfTerm.gpioRead(UsbCmdPacket.Group.A, 0);
-                Log.d(TAG, "end");
                 if (isPress) {
                     mLedView.clearColorFilter();
                 } else {
@@ -70,16 +106,28 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         mLedView.setColorFilter(Color.GRAY, PorterDuff.Mode.MULTIPLY);
         LedControlThread ledControlThread = new LedControlThread();
         ledControlThread.start();
+
+        mUartTestView = findViewById(R.id.textView);
+        UartReceiveThread uartThread = new UartReceiveThread(mIntfTerm, mUartTestView);
+        uartThread.start();
+
+        mSendButton = findViewById(R.id.sendBotton);
+        mSendEditText = findViewById(R.id.editTextContent);
+        mSendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String str = mSendEditText.getText().toString();
+                mIntfTerm.uartWrite(2, str.getBytes());
+            }
+        });
     }
 
     @Override
     public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-        String str = "Hello world\r\n";
         if (compoundButton.isChecked()) {
-            //mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, false);
-            mIntfTerm.uartWrite(2, str.getBytes());
+            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, false);
         } else {
-            //mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, true);
+            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, true);
         }
     }
 }
