@@ -54,7 +54,7 @@ class UartReceiveThread extends Thread {
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
     private static final String TAG = "USB_HOST";
     private final static int VENDOR_ID = 0x483;
-    private final static int PRODUCT_ID = 0x5750;
+    private final static int PRODUCT_ID = 0x5740;
     private ToggleButton mLedButton;
     private ImageView mLedView;
     private TextView mUartTestView;
@@ -90,14 +90,13 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
         UsbManager usbManager = (UsbManager) getSystemService(USB_SERVICE);
         mIntfTerm = new InterfaceTerminal(usbManager);
+        mIntfTerm.connect(VENDOR_ID, PRODUCT_ID);
         try {
-            mIntfTerm.connect(VENDOR_ID, PRODUCT_ID);
+            mIntfTerm.start();
         } catch (Exception e) {
             Log.e(TAG, "Usb connect failed\n");
             return;
         };
-
-        mIntfTerm.start();
 
         mLedButton = findViewById(R.id.toggleButton);
         mLedButton.setOnCheckedChangeListener(this);
@@ -113,6 +112,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
         mSendButton = findViewById(R.id.sendBotton);
         mSendEditText = findViewById(R.id.editTextContent);
+
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

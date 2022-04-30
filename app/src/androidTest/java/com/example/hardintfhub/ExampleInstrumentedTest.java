@@ -61,14 +61,12 @@ public class ExampleInstrumentedTest {
 
         UsbManager usbManager = (UsbManager)appContext.getSystemService(appContext.USB_SERVICE);
         InterfaceTerminal intfTerm = new InterfaceTerminal(usbManager);
-
+        intfTerm.connect(VENDOR_ID, PRODUCT_ID);
         try {
-            intfTerm.connect(VENDOR_ID, PRODUCT_ID);
+            intfTerm.start();
         } catch (Exception e) {
             fail("Usb connect failed");
         };
-
-        intfTerm.start();
 
         int cnt = 500;
         while (cnt-- > 0) {

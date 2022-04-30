@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
 
-class UsbCmdPacket implements Iterator {
+class UsbCmdPacket {
     public final static int GPIO_PIN_CNT = 16;
     public final static int USB_PACKET_MAX = 64;
     public final static int USB_PACKET_MIN = 4;
@@ -103,16 +103,6 @@ class UsbCmdPacket implements Iterator {
 
         mPacket = new byte[packetLen];
         mIndex = 0;
-    }
-
-    @Override
-    public boolean hasNext() {
-        return mIndex < mPacket.length;
-    }
-
-    @Override
-    public Object next() {
-        return mPacket[mIndex++];
     }
 
     public void put(byte value) {
