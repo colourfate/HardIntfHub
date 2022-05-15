@@ -15,14 +15,19 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
+import com.example.intfdefine.HardGpio;
+import com.example.intfdefine.HardIntf;
+import com.example.intfdefine.HardSerial;
+import com.example.intfdefine.InterfaceFactory;
+
 import java.util.Arrays;
 
 class UartReceiveThread extends Thread {
-    private InterfaceTerminal mIntfTerm;
-    private TextView mUartTest;
+    private final HardSerial mSerial;
+    private final TextView mUartTest;
 
-    public UartReceiveThread(InterfaceTerminal intfTerm, TextView uartTest) {
-        this.mIntfTerm = intfTerm;
+    public UartReceiveThread(HardSerial serial, TextView uartTest) {
+        this.mSerial = serial;
         this.mUartTest = uartTest;
     }
 
@@ -31,7 +36,7 @@ class UartReceiveThread extends Thread {
         StringBuffer contentBuffer = new StringBuffer("");
         while (true) {
             byte[] buf = new byte[10];
-            int readLen = mIntfTerm.uartRead(2, buf);
+            int readLen = mSerial.read(buf);
             if (readLen > 0) {
                 contentBuffer.append(new String(Arrays.copyOfRange(buf, 0, readLen)));
                 if (mUartTest.getLineCount() > mUartTest.getMaxLines()) {
@@ -60,14 +65,15 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private TextView mUartTestView;
     private Button mSendButton;
     private EditText mSendEditText;
+    private HardGpio PC13, PA0;
 
-    private InterfaceTerminal mIntfTerm;
+    private InterfaceFactory mIntfFactory;
 
     private class LedControlThread extends Thread {
         @Override
         public void run() {
-            while (mLedView != null && mIntfTerm != null) {
-                boolean isPress = !mIntfTerm.gpioRead(UsbCmdPacket.Group.A, 0);
+            while (mLedView != null) {
+                boolean isPress = PA0.read();
                 if (isPress) {
                     mLedView.clearColorFilter();
                 } else {
@@ -89,25 +95,46 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         setContentView(R.layout.activity_main);
 
         UsbManager usbManager = (UsbManager) getSystemService(USB_SERVICE);
-        mIntfTerm = new InterfaceTerminal(usbManager);
-        mIntfTerm.connect(VENDOR_ID, PRODUCT_ID);
+        mIntfFactory = new InterfaceFactory(usbManager);
+        mIntfFactory.connect(VENDOR_ID, PRODUCT_ID);
         try {
-            mIntfTerm.start();
+            mIntfFactory.start();
         } catch (Exception e) {
             Log.e(TAG, "Usb connect failed\n");
             return;
         };
 
-        mLedButton = findViewById(R.id.toggleButton);
-        mLedButton.setOnCheckedChangeListener(this);
-
+        PA0 = (HardGpio)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
+        PA0.setPort(HardIntf.Group.A, 0);
+        PA0.setType(HardIntf.Type.GPIO);
+        PA0.setDir(HardIntf.Dir.IN);
+        PA0.config();
         mLedView = findViewById(R.id.imageView);
         mLedView.setColorFilter(Color.GRAY, PorterDuff.Mode.MULTIPLY);
         LedControlThread ledControlThread = new LedControlThread();
         ledControlThread.start();
 
+        PC13 = (HardGpio)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
+        PC13.setPort(HardIntf.Group.C, 13);
+        PC13.setType(HardIntf.Type.GPIO);
+        PC13.setDir(HardIntf.Dir.OUT);
+        PC13.config();
+        mLedButton = findViewById(R.id.toggleButton);
+        mLedButton.setOnCheckedChangeListener(this);
+
+
         mUartTestView = findViewById(R.id.textView);
-        UartReceiveThread uartThread = new UartReceiveThread(mIntfTerm, mUartTestView);
+        HardSerial serial2 = (HardSerial)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.Serial);
+        serial2.setTx(HardIntf.Group.A, 2);
+        serial2.setRx(HardIntf.Group.A, 3);
+        serial2.setType(HardIntf.Type.SERIAL);
+        serial2.setUartNum(2);
+        serial2.setBuadRate(HardSerial.BuadRate.BUAD_115200);
+        serial2.setWordLen(HardSerial.WordLen.LEN_8);
+        serial2.setStopBit(HardSerial.StopBit.BIT_1);
+        serial2.config();
+
+        UartReceiveThread uartThread = new UartReceiveThread(serial2, mUartTestView);
         uartThread.start();
 
         mSendButton = findViewById(R.id.sendBotton);
@@ -117,17 +144,13 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             @Override
             public void onClick(View view) {
                 String str = mSendEditText.getText().toString();
-                mIntfTerm.uartWrite(2, str.getBytes());
+                serial2.write(str.getBytes());
             }
         });
     }
 
     @Override
     public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-        if (compoundButton.isChecked()) {
-            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, false);
-        } else {
-            mIntfTerm.gpioWrite(UsbCmdPacket.Group.C, 13, true);
-        }
+        PC13.write(!compoundButton.isChecked());
     }
 }

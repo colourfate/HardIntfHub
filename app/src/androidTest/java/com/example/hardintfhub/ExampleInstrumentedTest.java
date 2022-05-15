@@ -21,6 +21,7 @@ import static org.junit.Assert.*;
  */
 @RunWith(AndroidJUnit4.class)
 public class ExampleInstrumentedTest {
+    /*
     private static final String TAG = "USB_HOST";
     private final static int VENDOR_ID = 0x483;
     private final static int PRODUCT_ID = 0x5750;
@@ -87,4 +88,6 @@ public class ExampleInstrumentedTest {
             //Log.d(TAG, "Next");
         }
     }
+
+     */
 }
