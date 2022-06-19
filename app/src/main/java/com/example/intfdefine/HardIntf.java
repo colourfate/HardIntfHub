@@ -41,7 +41,7 @@ class Port {
     }
 };
 
-public abstract class HardIntf {
+public class HardIntf {
     public final static int USB_PACKET_MAX = 64;
     public final static int USB_PACKET_MIN = 4;
     public final static int GPIO_PIN_CNT = 16;
@@ -75,7 +75,7 @@ public abstract class HardIntf {
     }
 
     public enum Mode {
-        CTRL(0), CFG(1);
+        CTRL(0), CFG(1), INFO(2);
         private final int value;
         Mode(int i) {
             this.value = i;
@@ -83,6 +83,7 @@ public abstract class HardIntf {
         public int getValue() {
             return value;
         }
+        static public int parsePacket(byte packet) { return packet >> 1 & 0x3; }
     }
 
     public enum Dir {
@@ -111,7 +112,7 @@ public abstract class HardIntf {
              int portNum) {
         this.mUsbSerial = usbSerial;
         this.mListenerList = listenerList;
-        if (portNum < 1 || portNum > GPIO_PIN_CNT) {
+        if (portNum < 0 || portNum > GPIO_PIN_CNT) {
             Log.w(TAG, "HardIntf: Not support portNum: " + portNum);
             portNum = GPIO_PIN_CNT;
         }

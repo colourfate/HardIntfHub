@@ -16,6 +16,7 @@ import javax.security.auth.login.LoginException;
 
 public class InterfaceFactory {
     private final static String TAG = "USB_HOST";
+    private final static int MAX_INFO_LEN = 128;
 
     private final UsbManager myUsbManager;
     private UsbDevice myUsbDevice;
@@ -71,6 +72,16 @@ public class InterfaceFactory {
     private final UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         @Override
         public void onReceivedData(byte[] arg0) {
+            if (HardIntf.Mode.parsePacket(arg0[0]) == HardIntf.Mode.INFO.getValue()) {
+                int dataLen = arg0[2];
+                if (dataLen > MAX_INFO_LEN) {
+                    Log.e(TAG, "Invalid Data len: " + dataLen);
+                    return;
+                }
+
+                Log.i("USB_SLAVE" ,new String(arg0, 3, dataLen));
+                return;
+            }
             for (IntfEventListener listener : mListenerList) {
                 listener.handleIntfEvent(arg0);
             }
@@ -93,7 +104,7 @@ public class InterfaceFactory {
             throw new IOException("Not support terminal");
         }
 
-        Log.d(TAG, "Create CDC devices success");
+        Log.i(TAG, "Create CDC devices success");
         // No physical serial port, no need to set parameters
         mSerial.open();
         mSerial.read(mCallback);

@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardSerial extends HardIntf {
     private final static String TAG = "USB_HOST";
-    private final static int MAX_PORT = 2;
     private int mUartNum = 1;
     private BuadRate mBuadRate = BuadRate.BUAD_115200;
     private WordLen mWordLen = WordLen.LEN_8;
@@ -95,7 +94,7 @@ public class HardSerial extends HardIntf {
     }
 
     public HardSerial(UsbSerialDevice usbSerial, ConcurrentLinkedQueue<IntfEventListener> listenerList) {
-        super(usbSerial, listenerList, MAX_PORT);
+        super(usbSerial, listenerList, 2);
     }
 
     public void setTx(Group group, int pin) { super.setPort(0, new Port(group, pin)); }

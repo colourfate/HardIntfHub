@@ -104,6 +104,14 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             return;
         };
 
+        PC13 = (HardGpio)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
+        PC13.setPort(HardIntf.Group.C, 13);
+        PC13.setType(HardIntf.Type.GPIO);
+        PC13.setDir(HardIntf.Dir.OUT);
+        PC13.config();
+        mLedButton = findViewById(R.id.toggleButton);
+        mLedButton.setOnCheckedChangeListener(this);
+
         PA0 = (HardGpio)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
         PA0.setPort(HardIntf.Group.A, 0);
         PA0.setType(HardIntf.Type.GPIO);
@@ -113,15 +121,6 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         mLedView.setColorFilter(Color.GRAY, PorterDuff.Mode.MULTIPLY);
         LedControlThread ledControlThread = new LedControlThread();
         ledControlThread.start();
-
-        PC13 = (HardGpio)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
-        PC13.setPort(HardIntf.Group.C, 13);
-        PC13.setType(HardIntf.Type.GPIO);
-        PC13.setDir(HardIntf.Dir.OUT);
-        PC13.config();
-        mLedButton = findViewById(R.id.toggleButton);
-        mLedButton.setOnCheckedChangeListener(this);
-
 
         mUartTestView = findViewById(R.id.textView);
         HardSerial serial2 = (HardSerial)mIntfFactory.createHardIntf(InterfaceFactory.IntfType.Serial);
