@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.security.auth.login.LoginException;
 
 public class InterfaceFactory {
-    private final static String TAG = "USB_HOST";
+    private final static String TAG = "USB_FACTORY";
     private final static int MAX_INFO_LEN = 128;
 
     private final UsbManager myUsbManager;

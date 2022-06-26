@@ -36,13 +36,13 @@ public class HardGpio extends HardIntf {
         super.write(buf, port.group, port.pin);
     }
 
-    public boolean read() {
+    public byte read() {
         byte[] buf = new byte[1];
         Port port = super.getPort(0);
 
         if (mDir.getValue() != Dir.IN.getValue()) {
-            Log.e("HOST_USB", "write: Not support dir");
-            return false;
+            Log.e("HOST_USB", "read: Not support dir");
+            return 0;
         }
 
         int ret = super.read(buf, port.group, port.pin, new IntfEventListener() {
@@ -52,6 +52,6 @@ public class HardGpio extends HardIntf {
             }
         });
 
-        return ret == 1;
+        return (byte)ret;
     }
 }
