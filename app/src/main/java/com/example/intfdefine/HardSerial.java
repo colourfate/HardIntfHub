@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardSerial extends HardIntf {
@@ -93,8 +94,8 @@ public class HardSerial extends HardIntf {
         this.mStopBit = stopBit;
     }
 
-    public HardSerial(UsbSerialDevice usbSerial, ConcurrentLinkedQueue<IntfEventListener> listenerList) {
-        super(usbSerial, listenerList, 2);
+    public HardSerial(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
+        super(usbSerial, eventMap, 2);
     }
 
     public void setTx(Group group, int pin) { super.setPort(0, new Port(group, pin)); }
@@ -119,7 +120,7 @@ public class HardSerial extends HardIntf {
     }
 
     public int read(byte[] content) {
-        return super.read(content, Group.MUL_FUNC, mUartNum, new IntfEventListener() {
+        return super.read(content, Group.MUL_FUNC, mUartNum, new HardIntfEvent() {
             @Override
             int userHandle(byte[] receivePakcet) {
                 int readLen = receivePakcet[2];

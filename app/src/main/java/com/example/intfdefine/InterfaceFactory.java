@@ -10,6 +10,7 @@ import com.felhr.usbserial.UsbSerialInterface;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.security.auth.login.LoginException;
@@ -22,7 +23,8 @@ public class InterfaceFactory {
     private UsbDevice myUsbDevice;
     private UsbDeviceConnection myDeviceConnection;
     private UsbSerialDevice mSerial;
-    private final ConcurrentLinkedQueue<IntfEventListener> mListenerList = new ConcurrentLinkedQueue<IntfEventListener>();
+    private final ConcurrentHashMap<Integer, HardIntfEvent> mEventMap =
+            new ConcurrentHashMap<Integer, HardIntfEvent>();
 
     public enum IntfType {
         GPIO, Serial;
@@ -82,9 +84,14 @@ public class InterfaceFactory {
                 Log.i("USB_SLAVE" ,new String(arg0, 3, dataLen));
                 return;
             }
-            for (IntfEventListener listener : mListenerList) {
-                listener.handleIntfEvent(arg0);
+
+            int key = HardIntf.getPacketId(arg0);
+            HardIntfEvent event = mEventMap.get(key);
+            if (event == null) {
+                Log.e(TAG, "The event is not registered: 0x" + Integer.toHexString(key));
+                return;
             }
+            event.handle(arg0);
         }
     };
 
@@ -112,9 +119,9 @@ public class InterfaceFactory {
 
     public HardIntf createHardIntf(IntfType intfType) {
         if (intfType == IntfType.Serial) {
-            return new HardSerial(mSerial, mListenerList);
+            return new HardSerial(mSerial, mEventMap);
         } else if (intfType == IntfType.GPIO) {
-            return new HardGpio(mSerial, mListenerList);
+            return new HardGpio(mSerial, mEventMap);
         } else {
             Log.e(TAG, "createHardIntf: Not support intf type");
         }

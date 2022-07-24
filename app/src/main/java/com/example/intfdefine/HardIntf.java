@@ -4,30 +4,22 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-abstract class IntfEventListener {
+abstract class HardIntfEvent {
+    private volatile boolean mIsHandled = false;
     private int mUserRet = 0;
-    private boolean mIsHandled = false;
-    private final byte[] mIdentifier = new byte[2];
-
-    IntfEventListener() {}
-
-    public void setmIdentifier(byte id0, byte id1) {
-        mIdentifier[0] = id0;
-        mIdentifier[1] = id1;
-    }
-
-    public int getUserRet() { return mUserRet; }
-    public boolean isHandled() { return mIsHandled; }
 
     abstract int userHandle(byte[] receivePakcet);
-    public void handleIntfEvent(byte[] receivePacket) {
-        if (mIdentifier[0] != receivePacket[0] || mIdentifier[1] != receivePacket[1]) {
-            return;
-        }
+    public void handle(byte[] receivePacket) {
         mUserRet = userHandle(receivePacket);
         mIsHandled = true;
+    }
+
+    public int getUserRet() {
+        while (!mIsHandled);
+        return mUserRet;
     }
 }
 
@@ -46,8 +38,8 @@ public class HardIntf {
     public final static int USB_PACKET_MIN = 4;
     public final static int GPIO_PIN_CNT = 16;
     private final UsbSerialDevice mUsbSerial;
-    private final String TAG = "USB_HOST";
-    private final ConcurrentLinkedQueue<IntfEventListener> mListenerList;
+    private final String TAG = "USB_INTF";
+    private final ConcurrentHashMap<Integer, HardIntfEvent> mEventMap;
     private Type mType;
     private Port[] mPortTab;
 
@@ -83,7 +75,7 @@ public class HardIntf {
         public int getValue() {
             return value;
         }
-        static public int parsePacket(byte packet) { return packet >> 1 & 0x3; }
+        public static int parsePacket(byte packet) { return packet >> 1 & 0x3; }
     }
 
     public enum Dir {
@@ -108,10 +100,10 @@ public class HardIntf {
         }
     }
 
-    protected HardIntf(UsbSerialDevice usbSerial, ConcurrentLinkedQueue<IntfEventListener> listenerList,
+    protected HardIntf(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap,
              int portNum) {
         this.mUsbSerial = usbSerial;
-        this.mListenerList = listenerList;
+        this.mEventMap = eventMap;
         if (portNum < 0 || portNum > GPIO_PIN_CNT) {
             Log.w(TAG, "HardIntf: Not support portNum: " + portNum);
             portNum = GPIO_PIN_CNT;
@@ -124,7 +116,11 @@ public class HardIntf {
     }
 
     private byte getIdentifier_1(Group group, int pin) {
-        return (byte)((group.getValue() << 4) | pin);
+        return (byte)(group.getValue() << 4 | pin);
+    }
+
+    public static int getPacketId(byte[] packet) {
+        return packet[1] << 8 | packet[0];
     }
 
     protected void config(byte[] config, Dir dir) {
@@ -165,12 +161,12 @@ public class HardIntf {
         mUsbSerial.write(packet);
     }
 
-    protected int read(byte[] content, Group group, int pin, IntfEventListener listener) {
+    protected int read(byte[] content, Group group, int pin, HardIntfEvent event) {
         byte[] packet;
         byte dataLen = (byte)content.length;
 
-        if (listener == null) {
-            Log.w(TAG, "read: Not attach listener");
+        if (event == null) {
+            Log.w(TAG, "event is null");
             return 0;
         }
 
@@ -184,12 +180,12 @@ public class HardIntf {
         packet[1] = getIdentifier_1(group, pin);
         packet[2] = dataLen;
 
-        listener.setmIdentifier(packet[0], packet[1]);
-        mListenerList.add(listener);
+        int key = getPacketId(packet);
+        mEventMap.put(key, event);
         mUsbSerial.write(packet);
-        while (!listener.isHandled()) {};
-        mListenerList.remove(listener);
+        int ret = event.getUserRet();
+        mEventMap.remove(key);
 
-        return listener.getUserRet();
+        return ret;
     }
 }

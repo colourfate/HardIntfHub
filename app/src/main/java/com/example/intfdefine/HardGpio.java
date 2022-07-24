@@ -4,13 +4,14 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardGpio extends HardIntf {
     private Dir mDir;
 
-    HardGpio(UsbSerialDevice usbSerial, ConcurrentLinkedQueue<IntfEventListener> listenerList) {
-        super(usbSerial, listenerList, 1);
+    HardGpio(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
+        super(usbSerial, eventMap, 1);
     }
 
     public void setPort(Group group, int pin) {
@@ -45,7 +46,7 @@ public class HardGpio extends HardIntf {
             return 0;
         }
 
-        int ret = super.read(buf, port.group, port.pin, new IntfEventListener() {
+        int ret = super.read(buf, port.group, port.pin, new HardIntfEvent() {
             @Override
             int userHandle(byte[] receivePakcet) {
                 return receivePakcet[3];
