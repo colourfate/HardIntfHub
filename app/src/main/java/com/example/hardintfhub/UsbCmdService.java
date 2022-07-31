@@ -14,6 +14,7 @@ import com.example.intfdefine.HardIntf;
 import com.example.intfdefine.HardSerial;
 import com.example.intfdefine.InterfaceFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -100,13 +101,11 @@ public class UsbCmdService extends Service {
         PC13.setPort(HardIntf.Group.C, 13);
         PC13.setType(HardIntf.Type.GPIO);
         PC13.setDir(HardIntf.Dir.OUT);
-        PC13.config();
 
         PA0 = (HardGpio) intfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
         PA0.setPort(HardIntf.Group.A, 0);
         PA0.setType(HardIntf.Type.GPIO);
         PA0.setDir(HardIntf.Dir.IN);
-        PA0.config();
 
         Serial2 = (HardSerial) intfFactory.createHardIntf(InterfaceFactory.IntfType.Serial);
         Serial2.setTx(HardIntf.Group.A, 2);
@@ -116,7 +115,14 @@ public class UsbCmdService extends Service {
         Serial2.setBuadRate(HardSerial.BuadRate.BUAD_115200);
         Serial2.setWordLen(HardSerial.WordLen.LEN_8);
         Serial2.setStopBit(HardSerial.StopBit.BIT_1);
-        Serial2.config();
+
+        try {
+            PC13.config();
+            PA0.config();
+            Serial2.config();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         usbReadThread readThread = new usbReadThread();
         readThread.start();

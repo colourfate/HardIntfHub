@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -37,6 +38,7 @@ public class HardIntf {
     public final static int USB_PACKET_MAX = 64;
     public final static int USB_PACKET_MIN = 4;
     public final static int GPIO_PIN_CNT = 16;
+    public final static byte PORT_CFG_OK = 0;
     private final UsbSerialDevice mUsbSerial;
     private final String TAG = "USB_INTF";
     private final ConcurrentHashMap<Integer, HardIntfEvent> mEventMap;
@@ -123,7 +125,7 @@ public class HardIntf {
         return packet[1] << 8 | packet[0];
     }
 
-    protected void config(byte[] config, Dir dir) {
+    protected void config(byte[] config, Dir dir) throws IOException {
         byte[] packet;
         byte dataLen = (byte)config.length;
 
@@ -138,8 +140,22 @@ public class HardIntf {
         if (dataLen >= 0) System.arraycopy(config, 0, packet, 3, dataLen);
 
         for (Port port : mPortTab) {
+            HardIntfEvent event = new HardIntfEvent() {
+                @Override
+                int userHandle(byte[] receivePakcet) {
+                    return receivePakcet[3];
+                }
+            };
             packet[1] = getIdentifier_1(port.group, port.pin);
+            int key = getPacketId(packet);
+
+            mEventMap.put(key, event);
             mUsbSerial.write(packet);
+            int ret = event.getUserRet();
+            mEventMap.remove(key);
+            if (ret != PORT_CFG_OK) {
+                throw new IOException("config port failed: " + ret);
+            }
         }
     }
 

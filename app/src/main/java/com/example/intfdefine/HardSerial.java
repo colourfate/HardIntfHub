@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -104,7 +105,7 @@ public class HardSerial extends HardIntf {
         super.setPort(1, new Port(group, pin));
     }
 
-    public void config() {
+    public void config() throws IOException {
         byte[] packet = new byte[2];
         packet[0] = (byte)mUartNum;
         packet[0] |= (byte)(mBuadRate.getValue() << 3);

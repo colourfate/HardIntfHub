@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.felhr.usbserial.UsbSerialDevice;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -20,7 +21,7 @@ public class HardGpio extends HardIntf {
 
     public void setDir(Dir dir) { mDir = dir; }
 
-    public void config() {
+    public void config() throws IOException {
         byte[] gpio_config = new byte[1];
         super.config(gpio_config, mDir);
     }

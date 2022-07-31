@@ -90,6 +90,8 @@ public class InterfaceFactory {
             if (event == null) {
                 Log.e(TAG, "The event is not registered: 0x" + Integer.toHexString(key));
                 return;
+            } else {
+                Log.i(TAG, "get event: 0x" + Integer.toHexString(key));
             }
             event.handle(arg0);
         }
