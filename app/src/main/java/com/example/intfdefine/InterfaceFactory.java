@@ -9,6 +9,7 @@ import com.felhr.usbserial.UsbSerialDevice;
 import com.felhr.usbserial.UsbSerialInterface;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -74,6 +75,11 @@ public class InterfaceFactory {
     private final UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         @Override
         public void onReceivedData(byte[] arg0) {
+            if (arg0.length < 3) {
+                Log.e(TAG, "Protocol error: " + Arrays.toString(arg0));
+                return;
+            }
+
             if (HardIntf.Mode.parsePacket(arg0[0]) == HardIntf.Mode.INFO.getValue()) {
                 int dataLen = arg0[2];
                 if (dataLen > MAX_INFO_LEN) {

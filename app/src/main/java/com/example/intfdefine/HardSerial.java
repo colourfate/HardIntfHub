@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardSerial extends HardIntf {
     private final static String TAG = "USB_HOST";
-    private int mUartNum = 1;
     private BuadRate mBuadRate = BuadRate.BUAD_115200;
     private WordLen mWordLen = WordLen.LEN_8;
     private StopBit mStopBit = StopBit.BIT_1;
@@ -74,15 +73,6 @@ public class HardSerial extends HardIntf {
         }
     }
 
-    public void setUartNum(int uartNum) {
-        int MAX_UART_NUM = 8;
-        if (uartNum >= MAX_UART_NUM) {
-            Log.w(TAG, "setUartNum: uartNum(" + uartNum + ")invalid");
-            uartNum = 7;
-        }
-        this.mUartNum = uartNum;
-    }
-
     public void setBuadRate(BuadRate buadRate) {
         this.mBuadRate = buadRate;
     }
@@ -97,6 +87,7 @@ public class HardSerial extends HardIntf {
 
     public HardSerial(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
         super(usbSerial, eventMap, 2);
+        super.setType(HardIntf.Type.SERIAL);
     }
 
     public void setTx(Group group, int pin) { super.setPort(0, new Port(group, pin)); }
@@ -107,7 +98,7 @@ public class HardSerial extends HardIntf {
 
     public void config() throws IOException {
         byte[] packet = new byte[2];
-        packet[0] = (byte)mUartNum;
+        packet[0] = (byte)0;        /* reserve */
         packet[0] |= (byte)(mBuadRate.getValue() << 3);
         packet[0] |= (byte)(mWordLen.getValue() << 7);
         packet[1] = (byte)mStopBit.getValue();
@@ -117,11 +108,13 @@ public class HardSerial extends HardIntf {
     }
 
     public void write(byte[] content) {
-        super.write(content, Group.MUL_FUNC, mUartNum);
+        Port port = super.getPort(0);
+        super.write(content, port.group, port.pin);
     }
 
     public int read(byte[] content) {
-        return super.read(content, Group.MUL_FUNC, mUartNum, new HardIntfEvent() {
+        Port port = super.getPort(1);
+        return super.read(content, port.group, port.pin, new HardIntfEvent() {
             @Override
             int userHandle(byte[] receivePakcet) {
                 int readLen = receivePakcet[2];

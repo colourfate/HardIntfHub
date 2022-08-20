@@ -26,8 +26,8 @@ interface UsbEventIntf {
 
 public class UsbCmdService extends Service {
     private final static String TAG = "USB_HOST";
-    private final static int VENDOR_ID = 0x483;
-    private final static int PRODUCT_ID = 0x5740;
+    private final static int VENDOR_ID = 0x1f00;
+    private final static int PRODUCT_ID = 0x2012;
     private HardGpio PC13, PA0;
     private HardSerial Serial2;
     private final HashMap<Integer, UsbEventIntf> mEventMap = new HashMap<Integer, UsbEventIntf>();
@@ -51,6 +51,7 @@ public class UsbCmdService extends Service {
         public void run() {
             while (mReadThreadRun) {
                 byte[] value = new byte[1];
+
                 value[0] = PA0.read();
                 if (mLastState != value[0]) {
                     callEntry(BUTT_CHANGE_EVENT, value);
@@ -110,11 +111,7 @@ public class UsbCmdService extends Service {
         Serial2 = (HardSerial) intfFactory.createHardIntf(InterfaceFactory.IntfType.Serial);
         Serial2.setTx(HardIntf.Group.A, 2);
         Serial2.setRx(HardIntf.Group.A, 3);
-        Serial2.setType(HardIntf.Type.SERIAL);
-        Serial2.setUartNum(2);
         Serial2.setBuadRate(HardSerial.BuadRate.BUAD_115200);
-        Serial2.setWordLen(HardSerial.WordLen.LEN_8);
-        Serial2.setStopBit(HardSerial.StopBit.BIT_1);
 
         try {
             PC13.config();
