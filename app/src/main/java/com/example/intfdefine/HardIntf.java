@@ -45,16 +45,12 @@ public class HardIntf {
     private Type mType;
     private Port[] mPortTab;
 
-    public void setType(Type type) {
+    protected void setType(Type type) {
         this.mType = type;
     }
 
     protected void setPort(int index, Port port) {
         mPortTab[index] = port;
-    }
-
-    protected Port getPort(int index) {
-        return mPortTab[index];
     }
 
     public enum Type {
@@ -66,6 +62,7 @@ public class HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 3; }
     }
 
     public enum Mode {
@@ -77,7 +74,7 @@ public class HardIntf {
         public int getValue() {
             return value;
         }
-        public static int parsePacket(byte packet) { return packet >> 1 & 0x3; }
+        public int getPacket() { return this.value << 1; }
     }
 
     public enum Dir {
@@ -89,6 +86,7 @@ public class HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value; }
     }
 
     public enum Group {
@@ -100,6 +98,7 @@ public class HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 4; }
     }
 
     protected HardIntf(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap,
@@ -114,18 +113,18 @@ public class HardIntf {
     }
 
     private byte getIdentifier_0(Mode mode, Dir dir) {
-        return (byte)((mType.getValue() << 3) | (mode.getValue() << 1) | dir.getValue());
+        return (byte)(mType.getPacket() | mode.getPacket() | dir.getPacket());
     }
 
     private byte getIdentifier_1(Group group, int pin) {
-        return (byte)(group.getValue() << 4 | pin);
+        return (byte)(group.getPacket() | pin);
     }
 
     public static int getPacketId(byte[] packet) {
         return packet[1] << 8 | packet[0];
     }
 
-    protected void config(byte[] config, Dir dir) throws IOException {
+    protected void config(byte[] config) throws IOException {
         byte[] packet;
         byte dataLen = (byte)config.length;
 
@@ -135,7 +134,7 @@ public class HardIntf {
         }
 
         packet = new byte[USB_PACKET_MIN + config.length - 1];
-        packet[0] = getIdentifier_0(Mode.CFG, dir);
+        packet[0] = getIdentifier_0(Mode.CFG, Dir.NONE);
         packet[2] = dataLen;
         if (dataLen >= 0) System.arraycopy(config, 0, packet, 3, dataLen);
 
@@ -159,7 +158,7 @@ public class HardIntf {
         }
     }
 
-    protected void write(byte[] content, Group group, int pin) {
+    protected void write(byte[] content, int port_num) {
         byte[] packet;
         byte dataLen = (byte)content.length;
 
@@ -170,21 +169,16 @@ public class HardIntf {
 
         packet = new byte[USB_PACKET_MIN + content.length - 1];
         packet[0] = getIdentifier_0(Mode.CTRL, Dir.OUT);
-        packet[1] = getIdentifier_1(group, pin);
+        packet[1] = getIdentifier_1(mPortTab[port_num].group, mPortTab[port_num].pin);
         packet[2] = dataLen;
         if (dataLen >= 0) System.arraycopy(content, 0, packet, 3, dataLen);
 
         mUsbSerial.write(packet);
     }
 
-    protected int read(byte[] content, Group group, int pin, HardIntfEvent event) {
+    protected int read(byte[] content, int port_num, HardIntfEvent event) {
         byte[] packet;
         byte dataLen = (byte)content.length;
-
-        if (event == null) {
-            Log.w(TAG, "event is null");
-            return 0;
-        }
 
         if (dataLen > USB_PACKET_MAX - 3) {
             Log.w(TAG, "data length(" + content.length + ") should < " + (USB_PACKET_MAX - 3));
@@ -193,7 +187,7 @@ public class HardIntf {
 
         packet = new byte[USB_PACKET_MIN + content.length - 1];
         packet[0] = getIdentifier_0(Mode.CTRL, Dir.IN);
-        packet[1] = getIdentifier_1(group, pin);
+        packet[1] = getIdentifier_1(mPortTab[port_num].group, mPortTab[port_num].pin);
         packet[2] = dataLen;
 
         int key = getPacketId(packet);

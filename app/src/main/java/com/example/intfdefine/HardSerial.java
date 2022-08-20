@@ -15,6 +15,8 @@ public class HardSerial extends HardIntf {
     private StopBit mStopBit = StopBit.BIT_1;
     private final Parity mParity = Parity.NONE; // Not support set
     private final HwCtl mHwCtl = HwCtl.NONE;    // Not support set
+    private final static int TX = 0;
+    private final static int RX = 1;
 
     public enum BuadRate {
         BUAD_1200(0), BUAD_2400(1), BUAD_4800(2), BUAD_9600(3), BUAD_19200(4),
@@ -27,6 +29,7 @@ public class HardSerial extends HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 3; }
     }
 
     public enum WordLen {
@@ -38,6 +41,7 @@ public class HardSerial extends HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 7; }
     }
 
     public enum StopBit {
@@ -49,6 +53,7 @@ public class HardSerial extends HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value; }
     }
 
     public enum Parity {
@@ -60,6 +65,7 @@ public class HardSerial extends HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 1; }
     }
 
     public enum HwCtl {
@@ -71,6 +77,7 @@ public class HardSerial extends HardIntf {
         public int getValue() {
             return value;
         }
+        public int getPacket() { return value << 3; }
     }
 
     public void setBuadRate(BuadRate buadRate) {
@@ -87,34 +94,32 @@ public class HardSerial extends HardIntf {
 
     public HardSerial(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
         super(usbSerial, eventMap, 2);
-        super.setType(HardIntf.Type.SERIAL);
+        super.setType(Type.SERIAL);
     }
 
-    public void setTx(Group group, int pin) { super.setPort(0, new Port(group, pin)); }
+    public void setTx(Group group, int pin) { super.setPort(TX, new Port(group, pin)); }
 
     public void setRx(Group group, int pin) {
-        super.setPort(1, new Port(group, pin));
+        super.setPort(RX, new Port(group, pin));
     }
 
     public void config() throws IOException {
         byte[] packet = new byte[2];
         packet[0] = (byte)0;        /* reserve */
-        packet[0] |= (byte)(mBuadRate.getValue() << 3);
-        packet[0] |= (byte)(mWordLen.getValue() << 7);
-        packet[1] = (byte)mStopBit.getValue();
-        packet[1] |= (byte)(mParity.getValue() << 1);
-        packet[1] |= (byte)(mHwCtl.getValue() << 3);
-        super.config(packet, Dir.NONE);
+        packet[0] |= (byte)(mBuadRate.getPacket());
+        packet[0] |= (byte)(mWordLen.getPacket());
+        packet[1] = (byte)mStopBit.getPacket();
+        packet[1] |= (byte)(mParity.getPacket());
+        packet[1] |= (byte)(mHwCtl.getPacket());
+        super.config(packet);
     }
 
     public void write(byte[] content) {
-        Port port = super.getPort(0);
-        super.write(content, port.group, port.pin);
+        super.write(content, TX);
     }
 
     public int read(byte[] content) {
-        Port port = super.getPort(1);
-        return super.read(content, port.group, port.pin, new HardIntfEvent() {
+        return super.read(content, RX, new HardIntfEvent() {
             @Override
             int userHandle(byte[] receivePakcet) {
                 int readLen = receivePakcet[2];

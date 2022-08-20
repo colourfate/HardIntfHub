@@ -80,7 +80,7 @@ public class InterfaceFactory {
                 return;
             }
 
-            if (HardIntf.Mode.parsePacket(arg0[0]) == HardIntf.Mode.INFO.getValue()) {
+            if ((HardIntf.Mode.INFO.getPacket() ^ arg0[0]) == 0) {
                 int dataLen = arg0[2];
                 if (dataLen > MAX_INFO_LEN) {
                     Log.e(TAG, "Invalid Data len: " + dataLen);

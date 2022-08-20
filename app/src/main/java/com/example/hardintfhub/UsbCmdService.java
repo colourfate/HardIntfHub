@@ -100,13 +100,9 @@ public class UsbCmdService extends Service {
 
         PC13 = (HardGpio) intfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
         PC13.setPort(HardIntf.Group.C, 13);
-        PC13.setType(HardIntf.Type.GPIO);
-        PC13.setDir(HardIntf.Dir.OUT);
 
         PA0 = (HardGpio) intfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
         PA0.setPort(HardIntf.Group.A, 0);
-        PA0.setType(HardIntf.Type.GPIO);
-        PA0.setDir(HardIntf.Dir.IN);
 
         Serial2 = (HardSerial) intfFactory.createHardIntf(InterfaceFactory.IntfType.Serial);
         Serial2.setTx(HardIntf.Group.A, 2);
