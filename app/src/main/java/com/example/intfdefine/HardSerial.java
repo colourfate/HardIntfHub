@@ -97,11 +97,9 @@ public class HardSerial extends HardIntf {
         super.setType(Type.SERIAL);
     }
 
-    public void setTx(Group group, int pin) { super.setPort(TX, new Port(group, pin)); }
+    public void setTx(Group group, int pin) { super.setPort(TX, group, pin); }
 
-    public void setRx(Group group, int pin) {
-        super.setPort(RX, new Port(group, pin));
-    }
+    public void setRx(Group group, int pin) { super.setPort(RX, group, pin); }
 
     public void config() throws IOException {
         byte[] packet = new byte[2];
@@ -121,9 +119,9 @@ public class HardSerial extends HardIntf {
     public int read(byte[] content) {
         return super.read(content, RX, new HardIntfEvent() {
             @Override
-            int userHandle(byte[] receivePakcet) {
-                int readLen = receivePakcet[2];
-                System.arraycopy(receivePakcet, 3, content, 0, readLen);
+            int userHandle(byte[] receivePacket) {
+                int readLen = receivePacket[2];
+                System.arraycopy(receivePacket, 3, content, 0, readLen);
                 return readLen;
             }
         });

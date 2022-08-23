@@ -9,14 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardGpio extends HardIntf {
-
-    HardGpio(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
+    public HardGpio(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
         super(usbSerial, eventMap, 1);
         super.setType(Type.GPIO);
     }
 
     public void setPort(Group group, int pin) {
-        super.setPort(0, new Port(group, pin));
+        super.setPort(0, group, pin);
     }
 
     public void config() throws IOException {
@@ -36,8 +35,8 @@ public class HardGpio extends HardIntf {
 
         int ret = super.read(buf, 0, new HardIntfEvent() {
             @Override
-            int userHandle(byte[] receivePakcet) {
-                return receivePakcet[3];
+            int userHandle(byte[] receivePacket) {
+                return receivePacket[3];
             }
         });
 

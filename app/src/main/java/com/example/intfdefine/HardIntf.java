@@ -6,33 +6,6 @@ import com.felhr.usbserial.UsbSerialDevice;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
-abstract class HardIntfEvent {
-    private volatile boolean mIsHandled = false;
-    private int mUserRet = 0;
-
-    abstract int userHandle(byte[] receivePakcet);
-    public void handle(byte[] receivePacket) {
-        mUserRet = userHandle(receivePacket);
-        mIsHandled = true;
-    }
-
-    public int getUserRet() {
-        while (!mIsHandled);
-        return mUserRet;
-    }
-}
-
-class Port {
-    HardIntf.Group group;
-    int pin;
-
-    public Port(HardIntf.Group group, int pin) {
-        this.group = group;
-        this.pin = pin;
-    }
-};
 
 public class HardIntf {
     public final static int USB_PACKET_MAX = 64;
@@ -40,18 +13,28 @@ public class HardIntf {
     public final static int GPIO_PIN_CNT = 16;
     public final static byte PORT_CFG_OK = 0;
     private final UsbSerialDevice mUsbSerial;
-    private final String TAG = "USB_INTF";
+    protected final String TAG = "USB_INTF";
     private final ConcurrentHashMap<Integer, HardIntfEvent> mEventMap;
     private Type mType;
-    private Port[] mPortTab;
+    private final Port[] mPortTab;
 
     protected void setType(Type type) {
         this.mType = type;
     }
 
-    protected void setPort(int index, Port port) {
-        mPortTab[index] = port;
+    protected void setPort(int index, Group group, int pin) {
+        mPortTab[index] = new Port(group, pin);
     }
+
+    private static class Port {
+        Group group;
+        int pin;
+
+        public Port(HardIntf.Group group, int pin) {
+            this.group = group;
+            this.pin = pin;
+        }
+    };
 
     public enum Type {
         GPIO(0), PWM(1), ADC(2), SERIAL(3), I2C(4), SPI(5), CAN(6);
@@ -141,8 +124,8 @@ public class HardIntf {
         for (Port port : mPortTab) {
             HardIntfEvent event = new HardIntfEvent() {
                 @Override
-                int userHandle(byte[] receivePakcet) {
-                    return receivePakcet[3];
+                int userHandle(byte[] receivePacket) {
+                    return receivePacket[3];
                 }
             };
             packet[1] = getIdentifier_1(port.group, port.pin);
