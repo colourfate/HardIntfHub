@@ -19,23 +19,23 @@ public class HardGpio extends HardIntf {
     }
 
     public void config() throws IOException {
-        byte[] gpio_config = new byte[1];
-        super.config(gpio_config);
+        byte[] attr = new byte[1];
+        super.config(attr);
     }
 
     public void write(boolean value) {
         byte[] buf = new byte[1];
 
         buf[0] = (byte)(value ? 1 : 0);
-        super.write(buf, 0);
+        super.write(0, buf);
     }
 
     public byte read() {
         byte[] buf = new byte[1];
 
-        int ret = super.read(buf, 0, new HardIntfEvent() {
+        int ret = super.read(0, buf, new HardIntfEvent() {
             @Override
-            int userHandle(byte[] receivePacket) {
+            public int userHandle(byte[] receivePacket) {
                 return receivePacket[3];
             }
         });

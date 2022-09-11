@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class HardSerial extends HardIntf {
-    private final static String TAG = "USB_HOST";
     private BuadRate mBuadRate = BuadRate.BUAD_115200;
     private WordLen mWordLen = WordLen.LEN_8;
     private StopBit mStopBit = StopBit.BIT_1;
@@ -102,24 +101,24 @@ public class HardSerial extends HardIntf {
     public void setRx(Group group, int pin) { super.setPort(RX, group, pin); }
 
     public void config() throws IOException {
-        byte[] packet = new byte[2];
-        packet[0] = (byte)0;        /* reserve */
-        packet[0] |= (byte)(mBuadRate.getPacket());
-        packet[0] |= (byte)(mWordLen.getPacket());
-        packet[1] = (byte)mStopBit.getPacket();
-        packet[1] |= (byte)(mParity.getPacket());
-        packet[1] |= (byte)(mHwCtl.getPacket());
-        super.config(packet);
+        byte[] attr = new byte[2];
+        attr[0] = (byte)0;        /* reserve */
+        attr[0] |= (byte)(mBuadRate.getPacket());
+        attr[0] |= (byte)(mWordLen.getPacket());
+        attr[1] = (byte)mStopBit.getPacket();
+        attr[1] |= (byte)(mParity.getPacket());
+        attr[1] |= (byte)(mHwCtl.getPacket());
+        super.config(attr);
     }
 
     public void write(byte[] content) {
-        super.write(content, TX);
+        super.write(TX, content);
     }
 
     public int read(byte[] content) {
-        return super.read(content, RX, new HardIntfEvent() {
+        return super.read(RX, content, new HardIntfEvent() {
             @Override
-            int userHandle(byte[] receivePacket) {
+            public int userHandle(byte[] receivePacket) {
                 int readLen = receivePacket[2];
                 System.arraycopy(receivePacket, 3, content, 0, readLen);
                 return readLen;

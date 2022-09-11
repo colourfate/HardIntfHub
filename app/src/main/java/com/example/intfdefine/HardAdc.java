@@ -18,16 +18,16 @@ public class HardAdc extends HardIntf {
     }
 
     public void config() throws IOException {
-        byte[] gpio_config = new byte[1];
-        super.config(gpio_config);
+        byte[] attr = new byte[1];
+        super.config(attr);
     }
 
     public int read() {
         byte[] buf = new byte[2];
 
-        return super.read(buf, 0, new HardIntfEvent() {
+        return super.read(0, buf, new HardIntfEvent() {
             @Override
-            int userHandle(byte[] receivePacket) {
+            public int userHandle(byte[] receivePacket) {
                 if (receivePacket[2] != 2) {
                     Log.e(TAG, "adc read data length: " + receivePacket[2]);
                     return 0;

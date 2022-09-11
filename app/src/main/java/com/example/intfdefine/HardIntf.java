@@ -12,6 +12,8 @@ public class HardIntf {
     public final static int USB_PACKET_MIN = 4;
     public final static int GPIO_PIN_CNT = 16;
     public final static byte PORT_CFG_OK = 0;
+    public final static int PACKAGE_DATA_LEN = 2;
+    public final static int PACKAGE_DATA = 3;
     private final UsbSerialDevice mUsbSerial;
     protected final String TAG = "USB_INTF";
     private final ConcurrentHashMap<Integer, HardIntfEvent> mEventMap;
@@ -37,7 +39,7 @@ public class HardIntf {
     };
 
     public enum Type {
-        GPIO(0), PWM(1), ADC(2), SERIAL(3), I2C(4), SPI(5), CAN(6);
+        GPIO(0), PWM(1), ADC(2), SERIAL(3), I2C(4), SPI(5), INT(6);
         private final int value;
         Type(int i) {
             this.value = i;
@@ -124,7 +126,7 @@ public class HardIntf {
         for (Port port : mPortTab) {
             HardIntfEvent event = new HardIntfEvent() {
                 @Override
-                int userHandle(byte[] receivePacket) {
+                public int userHandle(byte[] receivePacket) {
                     return receivePacket[3];
                 }
             };
@@ -141,7 +143,7 @@ public class HardIntf {
         }
     }
 
-    protected void write(byte[] content, int port_num) {
+    protected void write(int port_num, byte[] content) {
         byte[] packet;
         byte dataLen = (byte)content.length;
 
@@ -159,7 +161,7 @@ public class HardIntf {
         mUsbSerial.write(packet);
     }
 
-    protected int read(byte[] content, int port_num, HardIntfEvent event) {
+    protected int read(int port_num, byte[] content, HardIntfEvent event) {
         byte[] packet;
         byte dataLen = (byte)content.length;
 
@@ -168,10 +170,11 @@ public class HardIntf {
             dataLen = USB_PACKET_MAX - 3;
         }
 
-        packet = new byte[USB_PACKET_MIN + content.length - 1];
+        packet = new byte[USB_PACKET_MIN + dataLen - 1];
         packet[0] = getIdentifier_0(Mode.CTRL, Dir.IN);
         packet[1] = getIdentifier_1(mPortTab[port_num].group, mPortTab[port_num].pin);
         packet[2] = dataLen;
+        if (dataLen >= 0) System.arraycopy(content, 0, packet, 3, dataLen);
 
         int key = getPacketId(packet);
         mEventMap.put(key, event);
@@ -180,5 +183,25 @@ public class HardIntf {
         mEventMap.remove(key);
 
         return ret;
+    }
+
+    protected void registerEvent(int port_num, HardIntfEvent event) {
+        byte[] id = new byte[2];
+
+        id[0] = getIdentifier_0(Mode.CTRL, Dir.IN);
+        id[1] = getIdentifier_1(mPortTab[port_num].group, mPortTab[port_num].pin);
+
+        int key = getPacketId(id);
+        mEventMap.put(key, event);
+    }
+
+    protected void unregisterEvent(int port_num, HardIntfEvent event) {
+        byte[] id = new byte[2];
+
+        id[0] = getIdentifier_0(Mode.CTRL, Dir.IN);
+        id[1] = getIdentifier_1(mPortTab[port_num].group, mPortTab[port_num].pin);
+
+        int key = getPacketId(id);
+        mEventMap.remove(key, event);
     }
 }

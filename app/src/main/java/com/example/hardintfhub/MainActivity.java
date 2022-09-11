@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            mUsbCmdService.registerEvent(UsbCmdService.BUTT_CHANGE_EVENT, new UsbEventIntf() {
+            mUsbCmdService.registerEvent(UsbCmdService.SOFT_BUTT_CHANGE_EVENT, new UsbEventIntf() {
                 @Override
                 public void callBack(byte[] data) {
                     if (data[0] == 0) {
@@ -92,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            mUsbCmdService.registerEvent(UsbCmdService.STR_READ_EVENT, new UsbEventIntf() {
+            mUsbCmdService.registerEvent(UsbCmdService.SOFT_STR_READ_EVENT, new UsbEventIntf() {
                 final StringBuffer contentBuffer = new StringBuffer("");
                 @Override
                 public void callBack(byte[] data) {

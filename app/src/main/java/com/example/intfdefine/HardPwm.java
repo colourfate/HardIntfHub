@@ -14,6 +14,7 @@ public class HardPwm extends HardIntf {
 
     protected HardPwm(UsbSerialDevice usbSerial, ConcurrentHashMap<Integer, HardIntfEvent> eventMap) {
         super(usbSerial, eventMap, 1);
+        super.setType(Type.PWM);
     }
 
     public void setPort(Group group, int pin) {
@@ -31,13 +32,11 @@ public class HardPwm extends HardIntf {
     }
 
     public void config() throws IOException {
-        byte[] packet = new byte[2];
+        byte[] attr = new byte[2];
 
-        super.setType(Type.PWM);
-
-        packet[0] = (byte)frequency;
-        packet[1] = (byte)(frequency >> 8);
-        super.config(packet);
+        attr[0] = (byte)frequency;
+        attr[1] = (byte)(frequency >> 8);
+        super.config(attr);
     }
 
     public void write(int value) {
@@ -51,6 +50,6 @@ public class HardPwm extends HardIntf {
 
         data[0] = (byte)value;
         data[1] = (byte)(value >> 8);
-        super.write(data, 0);
+        super.write(0, data);
     }
 }

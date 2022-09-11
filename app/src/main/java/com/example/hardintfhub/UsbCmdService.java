@@ -11,16 +11,17 @@ import android.util.Log;
 
 import com.example.intfdefine.HardAdc;
 import com.example.intfdefine.HardGpio;
+import com.example.intfdefine.HardI2C;
+import com.example.intfdefine.HardInterrupt;
 import com.example.intfdefine.HardIntf;
 import com.example.intfdefine.HardPwm;
 import com.example.intfdefine.HardSerial;
 import com.example.intfdefine.InterfaceFactory;
+import com.example.intfdefine.InterruptEvent;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 
 public class UsbCmdService extends Service {
     private final static String TAG = "USB_HOST";
@@ -30,12 +31,13 @@ public class UsbCmdService extends Service {
     private HardPwm Pwm1, Pwm2, Pwm3, Pwm4, Pwm5, Pwm6;
     private HardSerial Serial2;
     private HardAdc adc1;
+    private HardInterrupt int_0, int_1;
     private final HashMap<Integer, UsbEventIntf> mEventMap = new HashMap<Integer, UsbEventIntf>();
     private final IBinder mUsbBinder = new UsbCmdBinder();
     private boolean mReadThreadRun = true;
 
-    public static final int BUTT_CHANGE_EVENT = 0;
-    public static final int STR_READ_EVENT = 1;
+    public static final int SOFT_BUTT_CHANGE_EVENT = 0;
+    public static final int SOFT_STR_READ_EVENT = 1;
 
     private class usbReadThread extends Thread {
         private byte mLastState = 1;
@@ -53,27 +55,26 @@ public class UsbCmdService extends Service {
             int duty_cycle = 0;
             while (mReadThreadRun) {
                 byte[] value = new byte[1];
-                int adc_value = adc1.read();
-                Log.e(TAG, "adc read: 0x" + Integer.toHexString(adc_value));
+                //int adc_value = adc1.read();
+                //Log.e(TAG, "adc read: 0x" + Integer.toHexString(adc_value));
 
-                Pwm1.write(duty_cycle++);
-                duty_cycle = duty_cycle > 1000 ? 0 : duty_cycle;
-                /*
+                //Pwm1.write(duty_cycle++);
+                //duty_cycle = duty_cycle > 1000 ? 0 : duty_cycle;
+
                 value[0] = PA0.read();
                 if (mLastState != value[0]) {
-                    callEntry(BUTT_CHANGE_EVENT, value);
+                    callEntry(SOFT_BUTT_CHANGE_EVENT, value);
                     mLastState = value[0];
                 }
 
                 byte[] buf = new byte[10];
                 int readLen = Serial2.read(buf);
                 if (readLen > 0) {
-                    callEntry(STR_READ_EVENT, Arrays.copyOf(buf, readLen));
+                    callEntry(SOFT_STR_READ_EVENT, Arrays.copyOf(buf, readLen));
                 }
-                */
 
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep(250);
                 } catch (InterruptedException e) {
                     Log.e(TAG, "thread sleep interrupt");
                 }
@@ -122,11 +123,11 @@ public class UsbCmdService extends Service {
 
         Pwm1 = (HardPwm) intfFactory.createHardIntf(InterfaceFactory.IntfType.PWM);
         Pwm1.setPort(HardIntf.Group.A, 8);
-        Pwm1.setPwmFreq(5000);
+        Pwm1.setPwmFreq(20000);
 
         Pwm2 = (HardPwm) intfFactory.createHardIntf(InterfaceFactory.IntfType.PWM);
         Pwm2.setPort(HardIntf.Group.A, 9);
-        Pwm2.setPwmFreq(1000);
+        Pwm2.setPwmFreq(20000);
 
         Pwm3 = (HardPwm) intfFactory.createHardIntf(InterfaceFactory.IntfType.PWM);
         Pwm3.setPort(HardIntf.Group.C, 6);
@@ -144,10 +145,19 @@ public class UsbCmdService extends Service {
         Pwm6.setPort(HardIntf.Group.C, 9);
         Pwm6.setPwmFreq(20000);
 
+        int_0 = (HardInterrupt) intfFactory.createHardIntf(InterfaceFactory.IntfType.INT);
+        int_0.setPort(HardIntf.Group.B, 0);
+        int_0.setMode(HardInterrupt.Mode.FALL);
+        //int_0.setInterval((byte)50);
+
+        int_1 = (HardInterrupt) intfFactory.createHardIntf(InterfaceFactory.IntfType.INT);
+        int_1.setPort(HardIntf.Group.B, 1);
+        int_1.setMode(HardInterrupt.Mode.FALL);
+
         try {
-            //PC13.config();
-            //PA0.config();
-            //Serial2.config();
+            PC13.config();
+            PA0.config();
+            Serial2.config();
             adc1.config();
             Pwm1.config();
             Pwm2.config();
@@ -155,10 +165,31 @@ public class UsbCmdService extends Service {
             Pwm4.config();
             Pwm5.config();
             Pwm6.config();
+            int_0.config();
+            int_1.config();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+        Pwm1.write(100);
+        int_0.registerEvent(new InterruptEvent() {
+            int cnt = 1;
+            @Override
+            public void callBack() {
+                if (cnt % 2000 == 0) {
+                    Log.i(TAG, "interrupt 0 enter: " + cnt);
+                }
+                cnt++;
+            }
+        });
+        int_1.registerEvent(new InterruptEvent() {
+            int cnt = 1;
+            @Override
+            public void callBack() {
+                Log.i(TAG, "interrupt 1 enter" + cnt);
+                cnt++;
+            }
+        });
         // TODO: 移动到测试用例
         /*
         HardGpio PA13 = (HardGpio) intfFactory.createHardIntf(InterfaceFactory.IntfType.GPIO);
@@ -192,6 +223,14 @@ public class UsbCmdService extends Service {
     public void sendString(String str) { Serial2.write(str.getBytes()); }
 
     public void registerEvent(int type, UsbEventIntf entry) {
-        mEventMap.put(type, entry);
+        switch (type) {
+            case SOFT_BUTT_CHANGE_EVENT:
+            case SOFT_STR_READ_EVENT:
+                mEventMap.put(type, entry);
+                break;
+            default:
+                break;
+        }
+
     }
 }

@@ -28,7 +28,7 @@ public class InterfaceFactory {
             new ConcurrentHashMap<Integer, HardIntfEvent>();
 
     public enum IntfType {
-        GPIO, Serial, PWM, ADC;
+        GPIO, Serial, PWM, ADC, INT, I2C;
     }
 
     public InterfaceFactory(UsbManager usbManager) {
@@ -97,7 +97,7 @@ public class InterfaceFactory {
                 Log.e(TAG, "The event is not registered: 0x" + Integer.toHexString(key));
                 return;
             } else {
-                Log.i(TAG, "get event: 0x" + Integer.toHexString(key));
+                //Log.i(TAG, "get event: 0x" + Integer.toHexString(key));
             }
             event.handle(arg0);
         }
@@ -134,6 +134,10 @@ public class InterfaceFactory {
             return new HardPwm(mSerial, mEventMap);
         } else if (intfType == IntfType.ADC) {
             return new HardAdc(mSerial, mEventMap);
+        } else if (intfType == IntfType.INT) {
+            return new HardInterrupt(mSerial, mEventMap);
+        } else if (intfType == IntfType.I2C) {
+            return new HardI2C(mSerial, mEventMap);
         } else {
             Log.e(TAG, "createHardIntf: Not support intf type");
         }
