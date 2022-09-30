@@ -75,7 +75,7 @@ public class HardIntf {
     }
 
     public enum Group {
-        A(0), B(1), C(2), D(3), E(4), F(5), G(6), H(7), MUL_FUNC(8);
+        A(0), B(1), C(2), D(3), E(4), F(5), G(6), H(7), MAX(8);
         private final int value;
         Group(int i) {
             this.value = i;
@@ -97,6 +97,7 @@ public class HardIntf {
         mPortTab = new Port[portNum];
     }
 
+    // FIXME: 后期整改一下，放到类里面
     private byte getIdentifier_0(Mode mode, Dir dir) {
         return (byte)(mType.getPacket() | mode.getPacket() | dir.getPacket());
     }
@@ -124,6 +125,10 @@ public class HardIntf {
         if (dataLen >= 0) System.arraycopy(config, 0, packet, 3, dataLen);
 
         for (Port port : mPortTab) {
+            if (port == null) {
+                throw new IllegalArgumentException("Not set port pin");
+            }
+
             HardIntfEvent event = new HardIntfEvent() {
                 @Override
                 public int userHandle(byte[] receivePacket) {

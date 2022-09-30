@@ -28,7 +28,7 @@ public class InterfaceFactory {
             new ConcurrentHashMap<Integer, HardIntfEvent>();
 
     public enum IntfType {
-        GPIO, Serial, PWM, ADC, INT, I2C;
+        GPIO, Serial, PWM, ADC, INT, I2C, SPI;
     }
 
     public InterfaceFactory(UsbManager usbManager) {
@@ -138,6 +138,8 @@ public class InterfaceFactory {
             return new HardInterrupt(mSerial, mEventMap);
         } else if (intfType == IntfType.I2C) {
             return new HardI2C(mSerial, mEventMap);
+        } else if (intfType == IntfType.SPI) {
+            return new HardSPI(mSerial, mEventMap);
         } else {
             Log.e(TAG, "createHardIntf: Not support intf type");
         }

@@ -85,13 +85,6 @@ public class HardI2C extends HardIntf {
         });
     }
 
-    public void writeReg(byte i2cAddr, byte regAddr, byte data[]) {
-        byte[] newData = new byte[data.length + 1];
-        newData[0] = regAddr;
-        System.arraycopy(data, 0, newData, 1, data.length);
-        write(i2cAddr, newData);
-    }
-
     public void writeRegs(byte i2cAddr, byte regAddr, byte data[]) {
         byte[] newData = new byte[data.length + 1];
         newData[0] = regAddr;
